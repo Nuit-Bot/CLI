@@ -1,7 +1,8 @@
-import { password, cancel, note, intro, outro } from "@clack/prompts";
+import { password, cancel, note, intro, outro, text } from "@clack/prompts";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { cleanMultiline } from "./cleanMultiline";
+import crypto from "node:crypto";
 
 export async function hatch(
     fromInit: boolean = false,
@@ -38,7 +39,7 @@ export async function hatch(
             throw new Error("InvalidToken");
         }
 
-        const body = (await req.json()) as { id: string };
+        const body = (await req.json()) as { id: string; };
         discordClientId = body.id;
     } catch {
         return console.error(
@@ -82,9 +83,19 @@ export async function hatch(
         process.exit(1);
     }
 
+    const sessionSecret = crypto.randomBytes(32).toHex();
+
+    await note("The callback URL's format is: {nuit-server-base-url}/auth/discord/callback");
+
+    const callbackUrl = await text({
+        message: "Discord Callback URL"
+    });
+
     const dotEnv = cleanMultiline(`# Discord credentials
     DISCORD_TOKEN=${String(discordToken)}
     DISCORD_CLIENT_ID=${String(discordClientId)}
+    SESSION_SECRET=${sessionSecret}
+    DISCORD_CALLBACK_URL=${String(callbackUrl)}
     # Supabase credentials
     SUPABASE_URL=${String(supabaseUrl)}
     SUPABASE_KEY=${String(supabaseKey)}`);
