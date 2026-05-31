@@ -41,7 +41,7 @@ commander
 commander
     .command("init")
     .description("Creates a new Nuit bot")
-    .argument("[name]", "the folder to put the bot in", "my-nuit-bot")
+    .argument("[name]", "the folder to put the bot in", undefined)
     .option("-r, --repo <url.git>", "change the Nuit bot repo")
     .action(async (name, options) => {
         if (!which("git")) {
@@ -55,7 +55,7 @@ commander
 
         intro("nuit init");
 
-        if (name === "my-nuit-bot") {
+        if (!name) {
             name = await text({
                 message: "Enter a name for your bot",
                 placeholder: "my-nuit-bot",
@@ -72,6 +72,8 @@ commander
                 },
             });
         }
+
+        if (!name) return;
 
         try {
             try {
