@@ -19,6 +19,7 @@ import { hatch } from "./hatch";
 import path from "node:path";
 import { stat } from "node:fs/promises";
 import { rm } from "node:fs/promises";
+import install from "./install";
 
 const execFileAsync = promisify(execFile);
 
@@ -110,6 +111,17 @@ commander
         }
 
         await hatch(false, folder);
+    });
+
+commander
+    .command("install")
+    .argument("<module>", "The module to install")
+    .action(async (moduleName) => {
+        if (!isNuitDirectory(process.cwd())) {
+            return console.error("This is not a Nuit instance!");
+        }
+
+        await install(moduleName);
     });
 
 export default commander;
