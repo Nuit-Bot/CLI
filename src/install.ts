@@ -1,80 +1,148 @@
-import { exec } from "node:child_process";
+import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { config, cwd } from "node:process";
+import { cwd } from "node:process";
 import toml from "toml";
 
-async function getRegistries(path = cwd()) {
-    let privateConfigFile;
-    let configFile;
-    let exampleConfigFile;
+const NPM_REGISTRY = "https://registry.npmjs.org";
 
+interface RegistryModule {
+    id: string;
+    commit: string;
+    version: string;
+}
+
+interface NpmPackageVersion {
+    dist: {
+        shasum: string;
+    };
+}
+
+interface NpmPackageInfo {
+    versions: Record<string, NpmPackageVersion>;
+}
+
+interface TomlConfig {
+    registries?: Array<{ raw: string }>;
+}
+
+async function parseConfigFile(
+    path: string,
+): Promise<Array<{ raw: string }> | null> {
     try {
-        privateConfigFile = await readFile(join(path, "config.private.toml"), {
-            encoding: "utf-8",
-        });
-    } catch {}
+        const content = await readFile(path, { encoding: "utf-8" });
+        const parsed: TomlConfig = toml.parse(content);
+        return parsed.registries ?? null;
+    } catch {
+        return null;
+    }
+}
 
+async function getRegistries(basePath = cwd()) {
+    const configFiles = [
+        "config.private.toml",
+        "config.toml",
+        "config.example.toml",
+    ];
+
+    const results = await Promise.all(
+        configFiles.map((file) => parseConfigFile(join(basePath, file))),
+    );
+
+    return results
+        .filter((r): r is Array<{ raw: string }> => r !== null)
+        .flat();
+}
+
+async function fetchRegistry(url: string): Promise<RegistryModule[] | null> {
     try {
-        configFile = await readFile(join(path, "config.toml"), {
-            encoding: "utf-8",
+        const res = await fetch(url);
+        if (!res.ok) {
+            console.error(`Fetching ${url} failed: ${res.status}`);
+            return null;
+        }
+
+        const data: unknown = await res.json();
+        if (!Array.isArray(data)) {
+            console.error(`Invalid registry data from ${url}: expected array`);
+            return null;
+        }
+
+        return data.filter(
+            (item): item is RegistryModule =>
+                typeof item === "object" &&
+                item !== null &&
+                "id" in item &&
+                "commit" in item &&
+                "version" in item &&
+                typeof (item as RegistryModule).id === "string" &&
+                typeof (item as RegistryModule).commit === "string" &&
+                typeof (item as RegistryModule).version === "string",
+        );
+    } catch (error) {
+        console.error(`Failed to fetch registry ${url}:`, error);
+        return null;
+    }
+}
+
+function runBunInstall(moduleName: string, version: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const child = spawn("bun", ["install", `${moduleName}@${version}`], {
+            stdio: "inherit",
         });
-    } catch {}
 
-    try {
-        exampleConfigFile = await readFile(join(path, "config.example.toml"), {
-            encoding: "utf-8",
+        child.on("error", reject);
+        child.on("close", (code) => {
+            if (code === 0) {
+                resolve();
+            } else {
+                reject(new Error(`bun install exited with code ${code}`));
+            }
         });
-    } catch {}
-
-    const registries: { raw: string }[] = [];
-
-    if (privateConfigFile) {
-        const registriesList: Array<{ raw: string }> =
-            toml.parse(privateConfigFile).registries;
-        registriesList.forEach((reg) => registries.push(reg));
-    }
-
-    if (configFile) {
-        const registriesList: Array<{ raw: string }> =
-            toml.parse(configFile).registries;
-        registriesList.forEach((reg) => registries.push(reg));
-    }
-
-    if (exampleConfigFile) {
-        const registriesList: Array<{ raw: string }> =
-            toml.parse(exampleConfigFile).registries;
-        registriesList.forEach((reg) => registries.push(reg));
-    }
-
-    return registries;
+    });
 }
 
 export default async function install(moduleName: string) {
     const registries = await getRegistries();
 
-    registries.forEach(async (reg) => {
-        try {
-            const res = await fetch(reg.raw);
+    const moduleResults = await Promise.all(
+        registries.map((reg) => fetchRegistry(reg.raw)),
+    );
 
-            if (!res.ok) return;
+    const modules: RegistryModule[] = moduleResults
+        .filter((r): r is RegistryModule[] => r !== null)
+        .flat();
 
-            const regData:
-                | Array<{ id: string; commit: string; version: string }>
-                | undefined
-                | unknown = await res.json();
-
-            if (!regData) return;
-
-            if (Array.isArray(regData)) {
-                (regData as Array<{ id: string; commit: string; version: string }>).forEach(() => {});
-            }
-        } catch {}
-    });
-
-    try {
-        await exec(`bun install ${moduleName}`);
-    } catch (e) {
-        throw new Error(`Failed to install package: ${e}`);
+    const targetModule = modules.find((m) => m.id === moduleName);
+    if (!targetModule) {
+        throw new Error(`Module not found: ${moduleName}`);
     }
+
+    const res = await fetch(`${NPM_REGISTRY}/${moduleName}`);
+    if (!res.ok) {
+        throw new Error(`Failed to fetch package info from npm: ${res.status}`);
+    }
+
+    const pkgInfo = (await res.json()) as NpmPackageInfo;
+    const moduleVersion = pkgInfo.versions[targetModule.version];
+    if (!moduleVersion) {
+        throw new Error(
+            `Version ${targetModule.version} not found for ${moduleName}`,
+        );
+    }
+
+    const shasum = moduleVersion.dist.shasum;
+    if (!shasum) {
+        throw new Error(
+            `No shasum found for ${moduleName}@${targetModule.version}`,
+        );
+    }
+
+    if (shasum !== targetModule.commit) {
+        throw new Error(
+            `SHASUM mismatch for ${moduleName}: expected ${targetModule.commit}, got ${shasum}`,
+        );
+    }
+
+    await runBunInstall(moduleName, targetModule.version);
 }
