@@ -19,5 +19,8 @@
         "@clack/prompts": "^1.2.0",
         "commander": "^14.0.3",
         "toml": "^4.1.1"
-    }
+    },
+    "files": [
+        "dist"
+    ]
 }
