@@ -239,6 +239,8 @@ commander
 
         for (const name of names) {
             const current = installed[name];
+            if (!current) continue;
+
             const latest = registryModules.find((m) => m.name === name);
 
             if (!latest) {
