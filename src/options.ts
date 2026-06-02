@@ -21,6 +21,7 @@ import { stat } from "node:fs/promises";
 import { rm } from "node:fs/promises";
 import install from "./install";
 import uninstall from "./uninstall";
+import { readLockfile } from "./lockfile";
 
 const execFileAsync = promisify(execFile);
 
@@ -134,6 +135,27 @@ commander
         }
 
         await uninstall(moduleName);
+    });
+
+commander
+    .command("list")
+    .alias("ls")
+    .description("List installed modules")
+    .action(async () => {
+        if (!isNuitDirectory(process.cwd())) {
+            return console.error("This is not a Nuit instance!");
+        }
+
+        const lockfile = await readLockfile();
+        const entries = Object.entries(lockfile.modules);
+
+        if (entries.length === 0) {
+            return console.log("No modules installed.");
+        }
+
+        for (const [name, info] of entries) {
+            console.log(`${name}@${info.version} (${info.commit})`);
+        }
     });
 
 export default commander;
