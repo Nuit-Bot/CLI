@@ -20,6 +20,7 @@ import path from "node:path";
 import { stat } from "node:fs/promises";
 import { rm } from "node:fs/promises";
 import install from "./install";
+import uninstall from "./uninstall";
 
 const execFileAsync = promisify(execFile);
 
@@ -122,6 +123,17 @@ commander
         }
 
         await install(moduleName);
+    });
+
+commander
+    .command("uninstall")
+    .argument("<module>", "The module to uninstall")
+    .action(async (moduleName) => {
+        if (!isNuitDirectory(process.cwd())) {
+            return console.error("This is not a Nuit instance!");
+        }
+
+        await uninstall(moduleName);
     });
 
 export default commander;
