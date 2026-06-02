@@ -1,6 +1,6 @@
 {
     "name": "@nuit-bot/cli",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "module": "src/cli.ts",
     "type": "module",
     "devDependencies": {
