@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { cwd } from "node:process";
 import toml from "toml";
+import { addModuleToLockfile } from "./lockfile";
 
 const NPM_REGISTRY = "https://registry.npmjs.org";
 
@@ -165,6 +166,12 @@ export default async function install(moduleName: string) {
     }
 
     await runBunInstall(moduleName, targetModule.version);
+
+    await addModuleToLockfile(
+        moduleName,
+        targetModule.version,
+        targetModule.commit,
+    );
 
     await runMetadataUpdateScript();
 }
