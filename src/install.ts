@@ -7,7 +7,7 @@ import { addModuleToLockfile } from "./lockfile";
 
 const NPM_REGISTRY = "https://registry.npmjs.org";
 
-interface RegistryModule {
+export interface RegistryModule {
     name: string;
     commit: string;
     version: string;
@@ -38,7 +38,7 @@ async function parseConfigFile(
     }
 }
 
-async function getRegistries(basePath = cwd()) {
+export async function getRegistries(basePath = cwd()) {
     const configFiles = [
         "config.private.toml",
         "config.toml",
@@ -54,7 +54,7 @@ async function getRegistries(basePath = cwd()) {
         .flat();
 }
 
-async function fetchRegistry(url: string): Promise<RegistryModule[] | null> {
+export async function fetchRegistry(url: string): Promise<RegistryModule[] | null> {
     try {
         const res = await fetch(url);
         if (!res.ok) {

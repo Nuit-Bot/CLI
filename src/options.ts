@@ -19,7 +19,11 @@ import { hatch } from "./hatch";
 import path from "node:path";
 import { stat } from "node:fs/promises";
 import { rm } from "node:fs/promises";
-import install from "./install";
+import install, {
+    getRegistries,
+    fetchRegistry,
+    type RegistryModule,
+} from "./install";
 import uninstall from "./uninstall";
 import { readLockfile } from "./lockfile";
 
@@ -155,6 +159,103 @@ commander
 
         for (const [name, info] of entries) {
             console.log(`${name}@${info.version} (${info.commit})`);
+        }
+    });
+
+commander
+    .command("info")
+    .description("Show details about an installed module")
+    .argument("<module>", "The module to inspect")
+    .action(async (moduleName) => {
+        if (!isNuitDirectory(process.cwd())) {
+            return console.error("This is not a Nuit instance!");
+        }
+
+        const lockfile = await readLockfile();
+        const info = lockfile.modules[moduleName];
+
+        if (!info) {
+            return console.error(`Module not installed: ${moduleName}`);
+        }
+
+        console.log(`Module:  ${moduleName}`);
+        console.log(`Version: ${info.version}`);
+        console.log(`Commit:  ${info.commit}`);
+    });
+
+commander
+    .command("update")
+    .description("Reinstall one or all modules")
+    .argument("[module]", "The module to update (all if omitted)")
+    .action(async (moduleName) => {
+        if (!isNuitDirectory(process.cwd())) {
+            return console.error("This is not a Nuit instance!");
+        }
+
+        if (moduleName) {
+            await install(moduleName);
+            return;
+        }
+
+        const lockfile = await readLockfile();
+        const names = Object.keys(lockfile.modules);
+
+        if (names.length === 0) {
+            return console.log("No modules to update.");
+        }
+
+        for (const name of names) {
+            console.log(`Updating ${name}...`);
+            await install(name);
+        }
+    });
+
+commander
+    .command("outdated")
+    .description("Check for outdated modules")
+    .action(async () => {
+        if (!isNuitDirectory(process.cwd())) {
+            return console.error("This is not a Nuit instance!");
+        }
+
+        const lockfile = await readLockfile();
+        const installed = lockfile.modules;
+        const names = Object.keys(installed);
+
+        if (names.length === 0) {
+            return console.log("No modules installed.");
+        }
+
+        const registries = await getRegistries();
+        const moduleResults = await Promise.all(
+            registries.map((reg) => fetchRegistry(reg.raw)),
+        );
+
+        const registryModules: RegistryModule[] = moduleResults
+            .filter((r): r is RegistryModule[] => r !== null)
+            .flat();
+
+        let hasOutdated = false;
+
+        for (const name of names) {
+            const current = installed[name];
+            const latest = registryModules.find((m) => m.name === name);
+
+            if (!latest) {
+                console.log(
+                    `${name}@${current.version} — not found in registry`,
+                );
+                hasOutdated = true;
+            } else if (latest.version !== current.version) {
+                console.log(
+                    `${name} ${current.version} → ${latest.version}`,
+                );
+                hasOutdated = true;
+            }
+        }
+
+        if (!hasOutdated) {
+            console.log("All modules up to date.");
         }
     });
 
