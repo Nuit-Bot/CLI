@@ -7,15 +7,14 @@ import toml from "toml";
 const NPM_REGISTRY = "https://registry.npmjs.org";
 
 interface RegistryModule {
-    id: string;
+    name: string;
     commit: string;
     version: string;
+    author: string;
 }
 
 interface NpmPackageVersion {
-    dist: {
-        shasum: string;
-    };
+    gitHead: string;
 }
 
 interface NpmPackageInfo {
@@ -72,10 +71,10 @@ async function fetchRegistry(url: string): Promise<RegistryModule[] | null> {
             (item): item is RegistryModule =>
                 typeof item === "object" &&
                 item !== null &&
-                "id" in item &&
+                "name" in item &&
                 "commit" in item &&
                 "version" in item &&
-                typeof (item as RegistryModule).id === "string" &&
+                typeof (item as RegistryModule).name === "string" &&
                 typeof (item as RegistryModule).commit === "string" &&
                 typeof (item as RegistryModule).version === "string",
         );
@@ -102,6 +101,27 @@ function runBunInstall(moduleName: string, version: string): Promise<void> {
     });
 }
 
+function runMetadataUpdateScript(): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const child = spawn(
+            "bun",
+            ["run", `scripts/generate-page-manifest.ts`],
+            {
+                stdio: "inherit",
+            },
+        );
+
+        child.on("error", reject);
+        child.on("close", (code) => {
+            if (code === 0) {
+                resolve();
+            } else {
+                reject(new Error(`bun run exited with code ${code}`));
+            }
+        });
+    });
+}
+
 export default async function install(moduleName: string) {
     const registries = await getRegistries();
 
@@ -113,7 +133,7 @@ export default async function install(moduleName: string) {
         .filter((r): r is RegistryModule[] => r !== null)
         .flat();
 
-    const targetModule = modules.find((m) => m.id === moduleName);
+    const targetModule = modules.find((m) => m.name === moduleName);
     if (!targetModule) {
         throw new Error(`Module not found: ${moduleName}`);
     }
@@ -131,7 +151,7 @@ export default async function install(moduleName: string) {
         );
     }
 
-    const shasum = moduleVersion.dist.shasum;
+    const shasum = moduleVersion.gitHead;
     if (!shasum) {
         throw new Error(
             `No shasum found for ${moduleName}@${targetModule.version}`,
@@ -145,4 +165,6 @@ export default async function install(moduleName: string) {
     }
 
     await runBunInstall(moduleName, targetModule.version);
+
+    await runMetadataUpdateScript();
 }
