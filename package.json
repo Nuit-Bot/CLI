@@ -24,5 +24,8 @@
     },
     "files": [
         "dist"
-    ]
+    ],
+    "repository": {
+        "url": "git+https://github.com/Nuit-Bot/CLI"
+    }
 }
