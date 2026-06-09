@@ -27,6 +27,7 @@ import install, {
 import uninstall from "./uninstall";
 import { readLockfile } from "./lockfile";
 import search from "./search";
+import info from "./info";
 
 const execFileAsync = promisify(execFile);
 
@@ -168,20 +169,7 @@ commander
     .description("Show details about an installed module")
     .argument("<module>", "The module to inspect")
     .action(async (moduleName) => {
-        if (!isNuitDirectory(process.cwd())) {
-            return console.error("This is not a Nuit instance!");
-        }
-
-        const lockfile = await readLockfile();
-        const info = lockfile.modules[moduleName];
-
-        if (!info) {
-            return console.error(`Module not installed: ${moduleName}`);
-        }
-
-        console.log(`Module:  ${moduleName}`);
-        console.log(`Version: ${info.version}`);
-        console.log(`Commit:  ${info.commit}`);
+        await info(moduleName);
     });
 
 commander
