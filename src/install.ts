@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { cwd } from "node:process";
-import toml from "toml";
+import toml from "smol-toml";
 import { addModuleToLockfile } from "./lockfile";
 
 const NPM_REGISTRY = "https://registry.npmjs.org";

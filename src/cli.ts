@@ -1,4 +1,4 @@
 #!/usr/bin/env bun
-import commander from "./options";
+import prog from "./options";
 
-commander.parse();
+prog.parse(process.argv);

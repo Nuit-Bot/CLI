@@ -1,7 +1,7 @@
-import { program as commander } from "commander";
+import sade from "sade";
 import { readFileSync } from "node:fs";
 import { isNuitDirectory } from "./isNuitDirectory";
-import { parse } from "toml";
+import { parse } from "smol-toml";
 import { which } from "bun";
 import {
     intro,
@@ -31,27 +31,24 @@ import info from "./info";
 
 const execFileAsync = promisify(execFile);
 
-commander.name("nuit").description("Nuit bot CLI");
+const prog = sade("nuit").describe("Nuit bot CLI");
 
-commander
-    .command("version")
-    .description("Display version info")
+prog.command("version")
+    .describe("Display version info")
     .action(() => {
         const inProject = isNuitDirectory(process.cwd());
         console.log(`CLI: 1.0.0`);
         if (inProject) {
-            const toml = parse(
+            const toml: any = parse(
                 readFileSync(`${process.cwd()}/nuit.toml`, "utf-8"),
             );
             console.log(`Instance: ${toml.nuit.name}`);
         }
     });
 
-commander
-    .command("init")
-    .description("Creates a new Nuit bot")
-    .argument("[name]", "the folder to put the bot in", undefined)
-    .option("-r, --repo <url.git>", "change the Nuit bot repo")
+prog.command("init [name]")
+    .describe("Creates a new Nuit bot")
+    .option("-r, --repo <url>", "change the Nuit bot repo")
     .action(async (name, options) => {
         if (!which("git")) {
             console.error(
@@ -110,9 +107,8 @@ commander
         await hatch(true, path.join(process.cwd(), name));
     });
 
-commander
-    .command("hatch")
-    .argument("[folder]", "the Nuit instance folder")
+prog.command("hatch [folder]")
+    .describe("Hatch a Nuit bot instance")
     .action(async (folder = process.cwd()) => {
         if (!isNuitDirectory(folder)) {
             return console.error("This is not a Nuit instance!");
@@ -121,9 +117,8 @@ commander
         await hatch(false, folder);
     });
 
-commander
-    .command("install")
-    .argument("<module>", "The module to install")
+prog.command("install <module>")
+    .describe("Install a module")
     .action(async (moduleName) => {
         if (!isNuitDirectory(process.cwd())) {
             return console.error("This is not a Nuit instance!");
@@ -132,9 +127,8 @@ commander
         await install(moduleName);
     });
 
-commander
-    .command("uninstall")
-    .argument("<module>", "The module to uninstall")
+prog.command("uninstall <module>")
+    .describe("Uninstall a module")
     .action(async (moduleName) => {
         if (!isNuitDirectory(process.cwd())) {
             return console.error("This is not a Nuit instance!");
@@ -143,10 +137,8 @@ commander
         await uninstall(moduleName);
     });
 
-commander
-    .command("list")
-    .alias("ls")
-    .description("List installed modules")
+prog.command("list")
+    .describe("List installed modules")
     .action(async () => {
         if (!isNuitDirectory(process.cwd())) {
             return console.error("This is not a Nuit instance!");
@@ -164,25 +156,21 @@ commander
         }
     });
 
-commander
-    .command("info")
-    .description("Show details about an installed module")
-    .argument("<module>", "The module to inspect")
-    .action(async (moduleName) => {
-        await info(moduleName);
+prog.command("info <module>")
+    .describe("Show details about an installed module")
+    .action(async (module) => {
+        await info(module);
     });
 
-commander
-    .command("update")
-    .description("Reinstall one or all modules")
-    .argument("[module]", "The module to update (all if omitted)")
-    .action(async (moduleName) => {
+prog.command("update [module]")
+    .describe("Reinstall one or all modules")
+    .action(async (module) => {
         if (!isNuitDirectory(process.cwd())) {
             return console.error("This is not a Nuit instance!");
         }
 
-        if (moduleName) {
-            await install(moduleName);
+        if (module) {
+            await install(module);
             return;
         }
 
@@ -199,9 +187,8 @@ commander
         }
     });
 
-commander
-    .command("outdated")
-    .description("Check for outdated modules")
+prog.command("outdated")
+    .describe("Check for outdated modules")
     .action(async () => {
         if (!isNuitDirectory(process.cwd())) {
             return console.error("This is not a Nuit instance!");
@@ -248,10 +235,8 @@ commander
         }
     });
 
-commander
-    .command("search")
-    .description("Search for a module in the registry")
-    .argument("name", "The name of the module to search for")
+prog.command("search <name>")
+    .describe("Search for a module in the registry")
     .action(async (name) => {
         if (!isNuitDirectory(process.cwd())) {
             return console.error("This is not a Nuit instance!");
@@ -260,4 +245,4 @@ commander
         await search(name);
     });
 
-export default commander;
+export default prog;
