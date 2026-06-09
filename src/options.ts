@@ -26,6 +26,7 @@ import install, {
 } from "./install";
 import uninstall from "./uninstall";
 import { readLockfile } from "./lockfile";
+import search from "./search";
 
 const execFileAsync = promisify(execFile);
 
@@ -241,7 +242,7 @@ commander
             const current = installed[name];
             if (!current) continue;
 
-            const latest = registryModules.find((m) => m.name === name);
+            const latest = registryModules.find((m) => m.package === name);
 
             if (!latest) {
                 console.log(
@@ -249,9 +250,7 @@ commander
                 );
                 hasOutdated = true;
             } else if (latest.version !== current.version) {
-                console.log(
-                    `${name} ${current.version} → ${latest.version}`,
-                );
+                console.log(`${name} ${current.version} → ${latest.version}`);
                 hasOutdated = true;
             }
         }
@@ -259,6 +258,18 @@ commander
         if (!hasOutdated) {
             console.log("All modules up to date.");
         }
+    });
+
+commander
+    .command("search")
+    .description("Search for a module in the registry")
+    .argument("name", "The name of the module to search for")
+    .action(async (name) => {
+        if (!isNuitDirectory(process.cwd())) {
+            return console.error("This is not a Nuit instance!");
+        }
+
+        await search(name);
     });
 
 export default commander;

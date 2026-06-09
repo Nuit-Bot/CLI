@@ -8,10 +8,12 @@ import { addModuleToLockfile } from "./lockfile";
 const NPM_REGISTRY = "https://registry.npmjs.org";
 
 export interface RegistryModule {
-    name: string;
+    package: string;
     commit: string;
     version: string;
     author: string;
+    tags: string[];
+    description: string;
 }
 
 interface NpmPackageVersion {
@@ -54,7 +56,9 @@ export async function getRegistries(basePath = cwd()) {
         .flat();
 }
 
-export async function fetchRegistry(url: string): Promise<RegistryModule[] | null> {
+export async function fetchRegistry(
+    url: string,
+): Promise<RegistryModule[] | null> {
     try {
         const res = await fetch(url);
         if (!res.ok) {
@@ -72,10 +76,10 @@ export async function fetchRegistry(url: string): Promise<RegistryModule[] | nul
             (item): item is RegistryModule =>
                 typeof item === "object" &&
                 item !== null &&
-                "name" in item &&
+                "package" in item &&
                 "commit" in item &&
                 "version" in item &&
-                typeof (item as RegistryModule).name === "string" &&
+                typeof (item as RegistryModule).package === "string" &&
                 typeof (item as RegistryModule).commit === "string" &&
                 typeof (item as RegistryModule).version === "string",
         );
@@ -134,7 +138,7 @@ export default async function install(moduleName: string) {
         .filter((r): r is RegistryModule[] => r !== null)
         .flat();
 
-    const targetModule = modules.find((m) => m.name === moduleName);
+    const targetModule = modules.find((m) => m.package === moduleName);
     if (!targetModule) {
         throw new Error(`Module not found: ${moduleName}`);
     }
